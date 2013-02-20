@@ -1,0 +1,13 @@
+# stressed - Stunts/4D [Sports] Driving resource editor
+# http://stuntstools.googlecode.com/
+# Shape "goup" exported from file "GAME2.P3S"
+
+mtllib stunts.mtl
+
+v    -514.0       0.0    -514.0
+v    -514.0     450.0     514.0
+v     514.0     450.0     514.0
+v     514.0       0.0    -514.0
+
+usemtl Stunts102
+f   1   2   3   4

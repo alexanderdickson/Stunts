@@ -1,0 +1,90 @@
+# stressed - Stunts/4D [Sports] Driving resource editor
+# http://stuntstools.googlecode.com/
+# Shape "palm" exported from file "GAME2.P3S"
+
+mtllib stunts.mtl
+
+v      32.0       0.0     -12.0
+v      12.0     100.0     -10.0
+v      18.0     100.0       0.0
+v      40.0       0.0      -2.0
+v      18.0     100.0       2.0
+v      40.0       0.0       4.0
+v      12.0     100.0      12.0
+v      32.0       0.0      14.0
+v       4.0     100.0       2.0
+v      24.0       0.0       4.0
+v       4.0     100.0       0.0
+v      24.0       0.0      -2.0
+v      -4.0     190.0      -6.0
+v       0.0     190.0       2.0
+v       0.0     190.0       4.0
+v      -4.0     190.0       8.0
+v      -2.0     190.0       4.0
+v      -2.0     190.0       2.0
+v      16.0     202.0     -14.0
+v       6.0     200.0     -24.0
+v      14.0     211.0      10.0
+v      14.0     210.0      -4.0
+v       4.0     192.0      26.0
+v      16.0     193.0      18.0
+v     -22.0     207.0      22.0
+v     -12.0     207.0      28.0
+v     -30.0     195.0      -4.0
+v     -28.0     197.0      14.0
+v     -14.0     187.0     -24.0
+v     -24.0     185.0     -12.0
+v      34.0     180.0     -38.0
+v      30.0     187.0       2.0
+v      24.0     175.0      36.0
+v     -20.0     197.0      38.0
+v     -40.0     172.0       2.0
+v     -28.0     179.0     -28.0
+
+usemtl Stunts108
+f   1   2   3   4
+usemtl Stunts109
+f   4   3   5   6
+usemtl Stunts108
+f   6   5   7   8
+usemtl Stunts109
+f   8   7   9  10
+usemtl Stunts108
+f  10   9  11  12
+usemtl Stunts109
+f  12  11   2   1
+usemtl Stunts108
+f   2  13  14   3
+usemtl Stunts109
+f   3  14  15   5
+usemtl Stunts108
+f   5  15  16   7
+usemtl Stunts109
+f  17   9   7  16
+usemtl Stunts108
+f   9  17  18  11
+usemtl Stunts109
+f  13   2  11  18
+usemtl Stunts068
+f  14  19  20  13
+usemtl Stunts069
+f  15  21  22  14
+usemtl Stunts068
+f  16  23  24  15
+usemtl Stunts069
+f  17  25  26  16
+usemtl Stunts068
+f  18  27  28  17
+usemtl Stunts069
+f  13  29  30  18
+f  19  31  20
+usemtl Stunts070
+f  21  32  22
+usemtl Stunts069
+f  33  24  23
+usemtl Stunts070
+f  34  26  25
+usemtl Stunts069
+f  28  27  35
+usemtl Stunts070
+f  30  29  36

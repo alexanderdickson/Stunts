@@ -1,0 +1,18 @@
+# stressed - Stunts/4D [Sports] Driving resource editor
+# http://stuntstools.googlecode.com/
+# Shape "goui" exported from file "GAME2.P3S"
+
+mtllib stunts.mtl
+
+v     514.0     450.0     514.0
+v    -514.0     450.0    -514.0
+v    -514.0     450.0     514.0
+v     514.0       0.0    -514.0
+v       0.0     450.0       0.0
+
+usemtl Stunts101
+f   1   2   3
+usemtl Stunts104
+f   4   2   5
+usemtl Stunts105
+f   4   5   1

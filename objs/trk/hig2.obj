@@ -1,0 +1,13 @@
+# stressed - Stunts/4D [Sports] Driving resource editor
+# http://stuntstools.googlecode.com/
+# Shape "hig2" exported from file "GAME2.P3S"
+
+mtllib stunts.mtl
+
+v   -1025.0       0.0    -513.0
+v   -1025.0       0.0     513.0
+v    1025.0       0.0     513.0
+v    1025.0       0.0    -513.0
+
+usemtl Stunts101
+f   1   2   3   4
