@@ -10,3 +10,8 @@ Our first test loading some Stunts objects:
 
 Track loading looking way better:
 ![](firstTrackTackle.png)
+
+Documentation
+=============
+
+[Track Format](http://www.ultimatestunts.nl/documentation/en/originaltrackformat.htm)
