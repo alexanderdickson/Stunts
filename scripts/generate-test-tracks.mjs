@@ -50,25 +50,40 @@ function finishLine(track, x, z, dir = 'e') {
   track[z][x] = tiles[dir];
 }
 
+// Standard road corner pieces ('stur'). Mapping verified visually against the
+// overhead render so a rectangular loop closes cleanly at every corner.
+const CORNER = { tl: 0x0c, tr: 0x0d, br: 0x0b, bl: 0x0a };
+
+// Draw a closed rectangular circuit with straights on the edges and corner
+// pieces at the four corners, so the loop reads as a continuous track.
+function loop(track, x0, z0, x1, z1) {
+  for (let x = x0 + 1; x < x1; x++) {
+    track[z0][x] = 0x05;
+    track[z1][x] = 0x05;
+  }
+  for (let z = z0 + 1; z < z1; z++) {
+    track[z][x0] = 0x04;
+    track[z][x1] = 0x04;
+  }
+  track[z0][x0] = CORNER.tl;
+  track[z0][x1] = CORNER.tr;
+  track[z1][x1] = CORNER.br;
+  track[z1][x0] = CORNER.bl;
+}
+
 const maps = {
   default: () => {
     // Simple closed loop
     const m = empty();
-    rect(m.track, 10, 10, 10, 1, 0x05);
-    rect(m.track, 19, 10, 1, 10, 0x04);
-    rect(m.track, 10, 19, 10, 1, 0x05);
-    rect(m.track, 10, 10, 1, 10, 0x04);
-    finishLine(m.track, 10, 10, 'n');
+    loop(m.track, 10, 10, 19, 19);
+    finishLine(m.track, 14, 10, 'e');
     return m;
   },
 
   oval: () => {
     const m = empty();
-    rect(m.track, 8, 8, 14, 1, 0x05);
-    rect(m.track, 21, 8, 1, 14, 0x04);
-    rect(m.track, 8, 21, 14, 1, 0x05);
-    rect(m.track, 8, 8, 1, 14, 0x04);
-    finishLine(m.track, 8, 8, 'n');
+    loop(m.track, 8, 8, 21, 21);
+    finishLine(m.track, 14, 8, 'e');
     return m;
   },
 
