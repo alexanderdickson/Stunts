@@ -32,11 +32,11 @@ export class Game {
   private cameraMode: CameraMode = 'chase';
   private carIndex = 0;
   private editing = false;
+  private editorTopDown = false;
 
   constructor(
     private readonly loadingEl: HTMLElement,
     private readonly hudEl: HTMLElement,
-    private readonly driveHudEl: HTMLElement,
     private readonly speedEl: HTMLElement,
     private readonly rpmEl: HTMLElement,
     private readonly gearEl: HTMLElement,
@@ -120,20 +120,21 @@ export class Game {
     this.updateCarHud();
   }
 
-  private async onTrackChanged(data: TrackData): Promise<void> {
+  private onTrackChanged(data: TrackData, changedCell?: { x: number; z: number }): void {
     this.trackData = data;
     this.surface.setTrackData(data);
-    this.editor.rebuildTrack(data, this.trackGroup);
-    this.trackGroup = this.editor.getTrackGroup();
 
-    const start = findStartPosition(data);
-    this.car.setStart(start);
+    if (changedCell) {
+      this.editor.updateCell(data, changedCell.x, changedCell.z);
+    } else {
+      this.editor.rebuildAll(data);
+      this.trackGroup = this.editor.getTrackGroup();
+    }
   }
 
   private setEditMode(editing: boolean): void {
     this.editing = editing;
-    this.driveHudEl.hidden = editing;
-    this.car.mesh.visible = !editing;
+    this.editorTopDown = false;
   }
 
   private async switchCar(delta: number): Promise<void> {
@@ -180,7 +181,9 @@ export class Game {
       this.editor.toggle();
     }
 
-    if (this.editing) return;
+    if (this.editing && this.input.toggleEditorCamera) {
+      this.editorTopDown = !this.editorTopDown;
+    }
 
     if (this.input.reset) {
       this.car.reset();
@@ -199,11 +202,11 @@ export class Game {
   }
 
   private updateCamera(): void {
-    if (this.editing) {
+    if (this.editing && this.editorTopDown) {
       const centerX = (GRID_SIZE / 2) * TILE_SIZE;
       const centerZ = -(GRID_SIZE / 2) * TILE_SIZE;
       const target = new THREE.Vector3(centerX, 0, centerZ);
-      this.camera.position.lerp(new THREE.Vector3(centerX, 120, centerZ + 60), 0.05);
+      this.camera.position.lerp(new THREE.Vector3(centerX, 120, centerZ + 60), 0.08);
       this.camera.lookAt(target);
       return;
     }
@@ -232,12 +235,10 @@ export class Game {
 
     this.handleInput();
 
-    if (!this.editing) {
-      this.car.update(delta, this.input, this.surface);
-      this.speedEl.textContent = `${this.car.speedKmh} km/h`;
-      this.rpmEl.textContent = `${this.car.rpm} RPM`;
-      this.gearEl.textContent = `Gear ${this.car.gear}`;
-    }
+    this.car.update(delta, this.input, this.surface);
+    this.speedEl.textContent = `${this.car.speedKmh} km/h`;
+    this.rpmEl.textContent = `${this.car.rpm} RPM`;
+    this.gearEl.textContent = `Gear ${this.car.gear}`;
 
     this.updateCamera();
     this.input.endFrame();

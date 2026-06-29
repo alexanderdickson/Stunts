@@ -34,63 +34,71 @@ function placeObject(
   scene.add(object);
 }
 
+function buildCellContents(
+  group: THREE.Group,
+  data: TrackData,
+  trackObjects: TrackObjectMap,
+  x: number,
+  z: number,
+): void {
+  const tile = resolveTile(data.track[z][x], data.terrain[z][x]);
+
+  placeObject(group, trackObjects, tile.trackObj, x, z, tile.transX, tile.transY, tile.transZ, tile.rotY);
+  placeObject(
+    group,
+    trackObjects,
+    tile.trackObj2,
+    x,
+    z,
+    tile.transX,
+    tile.transY,
+    tile.transZ,
+    tile.invertSecondObj ? ROT_90 - tile.rotY : tile.rotY,
+  );
+  placeObject(group, trackObjects, tile.terrObj, x, z, 0, tile.transY - TRACK_Y_OFFSET, 0, tile.rotY);
+  placeObject(group, trackObjects, tile.terrObj2, x, z, 0, tile.transY - TRACK_Y_OFFSET, 0, tile.rotY);
+}
+
+export function cellGroupName(x: number, z: number): string {
+  return `cell_${x}_${z}`;
+}
+
+export function buildCellGroup(
+  data: TrackData,
+  trackObjects: TrackObjectMap,
+  x: number,
+  z: number,
+): THREE.Group {
+  const cell = new THREE.Group();
+  cell.name = cellGroupName(x, z);
+  buildCellContents(cell, data, trackObjects, x, z);
+  return cell;
+}
+
+export function updateTrackCell(
+  trackGroup: THREE.Group,
+  data: TrackData,
+  trackObjects: TrackObjectMap,
+  x: number,
+  z: number,
+): void {
+  const existing = trackGroup.getObjectByName(cellGroupName(x, z));
+  if (existing) {
+    trackGroup.remove(existing);
+  }
+  trackGroup.add(buildCellGroup(data, trackObjects, x, z));
+}
+
 export function buildTrackScene(
   data: TrackData,
   trackObjects: TrackObjectMap,
 ): THREE.Group {
   const group = new THREE.Group();
+  group.name = 'track';
 
   for (let z = 0; z < GRID_SIZE; z++) {
     for (let x = 0; x < GRID_SIZE; x++) {
-      const tile = resolveTile(data.track[z][x], data.terrain[z][x]);
-
-      placeObject(
-        group,
-        trackObjects,
-        tile.trackObj,
-        x,
-        z,
-        tile.transX,
-        tile.transY,
-        tile.transZ,
-        tile.rotY,
-      );
-
-      placeObject(
-        group,
-        trackObjects,
-        tile.trackObj2,
-        x,
-        z,
-        tile.transX,
-        tile.transY,
-        tile.transZ,
-        tile.invertSecondObj ? ROT_90 - tile.rotY : tile.rotY,
-      );
-
-      placeObject(
-        group,
-        trackObjects,
-        tile.terrObj,
-        x,
-        z,
-        0,
-        tile.transY - TRACK_Y_OFFSET,
-        0,
-        tile.rotY,
-      );
-
-      placeObject(
-        group,
-        trackObjects,
-        tile.terrObj2,
-        x,
-        z,
-        0,
-        tile.transY - TRACK_Y_OFFSET,
-        0,
-        tile.rotY,
-      );
+      group.add(buildCellGroup(data, trackObjects, x, z));
     }
   }
 

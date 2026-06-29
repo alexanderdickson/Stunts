@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GRID_SIZE, TILE_SIZE } from '../track/TrackConstants';
-import { buildTrackScene, getHorizonBackground } from '../track/TrackBuilder';
+import { buildTrackScene, getHorizonBackground, updateTrackCell } from '../track/TrackBuilder';
 import type { TrackObjectMap } from '../track/ModelLoader';
 import type { TrackData } from '../track/TrackParser';
 import { downloadTrackFile } from '../track/TrackSerializer';
@@ -15,7 +15,7 @@ import {
 export type EditorLayer = 'track' | 'terrain';
 
 export interface TrackEditorCallbacks {
-  onTrackChanged: (data: TrackData) => void;
+  onTrackChanged: (data: TrackData, changedCell?: { x: number; z: number }) => void;
   onModeChanged: (editing: boolean) => void;
 }
 
@@ -87,7 +87,7 @@ export class TrackEditor {
         <button id="editor-load">Load .TRK</button>
         <button id="editor-new">New Track</button>
       </div>
-      <div class="editor-hint">Click/drag to paint · E to exit editor</div>
+      <div class="editor-hint">Drive with WASD while editing · Click/drag to paint tiles · T — top-down view · E — close panel</div>
     `;
     return panel;
   }
@@ -212,13 +212,18 @@ export class TrackEditor {
     if (grid[gz][gx] === this.selectedTile.byte) return;
 
     grid[gz][gx] = this.selectedTile.byte;
-    this.callbacks.onTrackChanged(data);
+    this.callbacks.onTrackChanged(data, { x: gx, z: gz });
   }
 
-  rebuildTrack(data: TrackData, trackGroup: THREE.Group): void {
+  updateCell(data: TrackData, x: number, z: number): void {
+    if (!this.trackObjects) return;
+    updateTrackCell(this.trackGroup, data, this.trackObjects, x, z);
+  }
+
+  rebuildAll(data: TrackData): void {
     if (!this.trackObjects) return;
 
-    this.scene.remove(trackGroup);
+    this.scene.remove(this.trackGroup);
     const newGroup = buildTrackScene(data, this.trackObjects);
     this.scene.add(newGroup);
     this.trackGroup = newGroup;
@@ -233,7 +238,15 @@ export class TrackEditor {
       horizonSelect.value = String(data.horizon);
     }
 
-    this.showGridOverlay();
+    if (this.editing) {
+      this.showGridOverlay();
+    }
+  }
+
+  /** @deprecated use rebuildAll */
+  rebuildTrack(data: TrackData, trackGroup: THREE.Group): void {
+    this.trackGroup = trackGroup;
+    this.rebuildAll(data);
   }
 
   getTrackGroup(): THREE.Group {

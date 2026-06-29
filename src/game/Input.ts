@@ -64,6 +64,10 @@ export class InputManager {
     return this.wasPressed('KeyE');
   }
 
+  get toggleEditorCamera(): boolean {
+    return this.wasPressed('KeyT');
+  }
+
   get nextCar(): boolean {
     return this.wasPressed('KeyQ');
   }

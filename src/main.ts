@@ -2,17 +2,16 @@ import { Game } from './game/Game';
 
 const loadingEl = document.getElementById('loading');
 const hudEl = document.getElementById('hud');
-const driveHudEl = document.getElementById('drive-hud');
 const speedEl = document.getElementById('speed');
 const rpmEl = document.getElementById('rpm');
 const gearEl = document.getElementById('gear');
 const carNameEl = document.getElementById('car-name');
 
-if (!loadingEl || !hudEl || !driveHudEl || !speedEl || !rpmEl || !gearEl || !carNameEl) {
+if (!loadingEl || !hudEl || !speedEl || !rpmEl || !gearEl || !carNameEl) {
   throw new Error('Missing required DOM elements');
 }
 
-const game = new Game(loadingEl, hudEl, driveHudEl, speedEl, rpmEl, gearEl, carNameEl);
+const game = new Game(loadingEl, hudEl, speedEl, rpmEl, gearEl, carNameEl);
 
 game.start().catch((error: unknown) => {
   console.error(error);
