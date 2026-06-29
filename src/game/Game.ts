@@ -1,11 +1,17 @@
 import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { Car } from '../car/Car';
-import { TerrainSampler } from '../car/TerrainSampler';
+import { CAR_IDS } from '../car/CarDefinitions';
+import { TrackEditor } from '../editor/TrackEditor';
+import { SurfaceSampler } from '../physics/SurfaceSampler';
 import { InputManager } from './Input';
 import { buildTrackScene, getHorizonBackground } from '../track/TrackBuilder';
 import { loadTrackObjects } from '../track/ModelLoader';
-import { findStartPosition, parseTrackFile } from '../track/TrackParser';
+import {
+  findStartPosition,
+  parseTrackFile,
+  type TrackData,
+} from '../track/TrackParser';
 import { GRID_SIZE, TILE_SIZE } from '../track/TrackConstants';
 
 type CameraMode = 'chase' | 'hood';
@@ -19,15 +25,22 @@ export class Game {
   private clock = new THREE.Clock();
   private input = new InputManager();
   private car!: Car;
-  private terrain!: TerrainSampler;
+  private surface!: SurfaceSampler;
+  private trackData!: TrackData;
+  private trackGroup!: THREE.Group;
+  private editor!: TrackEditor;
   private cameraMode: CameraMode = 'chase';
-  private resetLatch = false;
-  private cameraLatch = false;
+  private carIndex = 0;
+  private editing = false;
 
   constructor(
     private readonly loadingEl: HTMLElement,
     private readonly hudEl: HTMLElement,
+    private readonly driveHudEl: HTMLElement,
     private readonly speedEl: HTMLElement,
+    private readonly rpmEl: HTMLElement,
+    private readonly gearEl: HTMLElement,
+    private readonly carNameEl: HTMLElement,
   ) {}
 
   async start(): Promise<void> {
@@ -76,28 +89,84 @@ export class Game {
       fetch('/trks/DEFAULT.TRK'),
     ]);
 
-    const trackData = parseTrackFile(await trackResponse.arrayBuffer());
-    const start = findStartPosition(trackData);
+    this.trackData = parseTrackFile(await trackResponse.arrayBuffer());
+    this.surface = new SurfaceSampler(this.trackData);
 
-    this.terrain = new TerrainSampler(trackData);
-    this.car = new Car(start);
+    const start = findStartPosition(this.trackData);
+    this.car = await Car.create(CAR_IDS[this.carIndex], start);
     this.scene.add(this.car.mesh);
 
-    const trackGroup = buildTrackScene(trackData, trackObjects);
-    this.scene.add(trackGroup);
+    this.trackGroup = buildTrackScene(this.trackData, trackObjects);
+    this.scene.add(this.trackGroup);
 
-    const horizon = getHorizonBackground(trackData.horizon);
-    document.body.style.background = `#888 url("${horizon}") no-repeat fixed center`;
-    document.body.style.backgroundSize = '100% auto';
-    document.body.style.backgroundPosition = '50% 25%';
+    this.applyHorizon(this.trackData.horizon);
+    this.positionCameraOverview();
 
-    const centerX = (GRID_SIZE / 2) * TILE_SIZE;
-    const centerZ = -(GRID_SIZE / 2) * TILE_SIZE;
-    this.camera.position.set(centerX, 40, centerZ + 80);
-    this.camera.lookAt(centerX, 0, centerZ);
+    this.editor = new TrackEditor(
+      this.scene,
+      this.camera,
+      this.renderer.domElement,
+      () => this.trackData,
+      {
+        onTrackChanged: (data) => this.onTrackChanged(data),
+        onModeChanged: (editing) => this.setEditMode(editing),
+      },
+      this.trackGroup,
+    );
+    this.editor.setTrackObjects(trackObjects);
 
     this.loadingEl.hidden = true;
     this.hudEl.hidden = false;
+    this.updateCarHud();
+  }
+
+  private async onTrackChanged(data: TrackData): Promise<void> {
+    this.trackData = data;
+    this.surface.setTrackData(data);
+    this.editor.rebuildTrack(data, this.trackGroup);
+    this.trackGroup = this.editor.getTrackGroup();
+
+    const start = findStartPosition(data);
+    this.car.setStart(start);
+  }
+
+  private setEditMode(editing: boolean): void {
+    this.editing = editing;
+    this.driveHudEl.hidden = editing;
+    this.car.mesh.visible = !editing;
+  }
+
+  private async switchCar(delta: number): Promise<void> {
+    this.carIndex = (this.carIndex + delta + CAR_IDS.length) % CAR_IDS.length;
+    const carId = CAR_IDS[this.carIndex];
+    const start = findStartPosition(this.trackData);
+    const pos = this.car.physics.state.position.clone();
+    const heading = this.car.physics.state.quaternion;
+
+    this.scene.remove(this.car.mesh);
+    this.car = await Car.create(carId, start);
+    this.car.physics.state.position.copy(pos);
+    this.car.physics.state.quaternion.copy(heading);
+    this.scene.add(this.car.mesh);
+    this.updateCarHud();
+  }
+
+  private updateCarHud(): void {
+    this.carNameEl.textContent = `${this.car.definition.name} (${this.car.definition.abbreviation})`;
+  }
+
+  private applyHorizon(horizonByte: number): void {
+    const horizon = getHorizonBackground(horizonByte);
+    document.body.style.background = `#888 url("${horizon}") no-repeat fixed center`;
+    document.body.style.backgroundSize = '100% auto';
+    document.body.style.backgroundPosition = '50% 25%';
+  }
+
+  private positionCameraOverview(): void {
+    const centerX = (GRID_SIZE / 2) * TILE_SIZE;
+    const centerZ = -(GRID_SIZE / 2) * TILE_SIZE;
+    this.camera.position.set(centerX, 80, centerZ + 120);
+    this.camera.lookAt(centerX, 0, centerZ);
   }
 
   private onResize = (): void => {
@@ -107,31 +176,44 @@ export class Game {
   };
 
   private handleInput(): void {
+    if (this.input.toggleEditor) {
+      this.editor.toggle();
+    }
+
+    if (this.editing) return;
+
     if (this.input.reset) {
-      if (!this.resetLatch) {
-        this.car.reset();
-        this.resetLatch = true;
-      }
-    } else {
-      this.resetLatch = false;
+      this.car.reset();
     }
 
     if (this.input.toggleCamera) {
-      if (!this.cameraLatch) {
-        this.cameraMode = this.cameraMode === 'chase' ? 'hood' : 'chase';
-        this.cameraLatch = true;
-      }
-    } else {
-      this.cameraLatch = false;
+      this.cameraMode = this.cameraMode === 'chase' ? 'hood' : 'chase';
+    }
+
+    if (this.input.nextCar) {
+      void this.switchCar(1);
+    }
+    if (this.input.prevCar) {
+      void this.switchCar(-1);
     }
   }
 
   private updateCamera(): void {
-    const { position, heading } = this.car.state;
-    const forward = new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
+    if (this.editing) {
+      const centerX = (GRID_SIZE / 2) * TILE_SIZE;
+      const centerZ = -(GRID_SIZE / 2) * TILE_SIZE;
+      const target = new THREE.Vector3(centerX, 0, centerZ);
+      this.camera.position.lerp(new THREE.Vector3(centerX, 120, centerZ + 60), 0.05);
+      this.camera.lookAt(target);
+      return;
+    }
+
+    const { position, quaternion } = this.car.physics.state;
+    const euler = new THREE.Euler().setFromQuaternion(quaternion);
+    const forward = new THREE.Vector3(Math.sin(euler.y), 0, Math.cos(euler.y));
 
     if (this.cameraMode === 'hood') {
-      this.camera.position.copy(position).add(new THREE.Vector3(0, 2.0, 0));
+      this.camera.position.copy(position).add(new THREE.Vector3(0, 1.6, 0).applyQuaternion(quaternion));
       const lookTarget = position.clone().add(forward.clone().multiplyScalar(20));
       lookTarget.y = position.y + 1.0;
       this.camera.lookAt(lookTarget);
@@ -141,8 +223,7 @@ export class Game {
     const chaseOffset = forward.clone().multiplyScalar(-14).add(new THREE.Vector3(0, 6.5, 0));
     const desired = position.clone().add(chaseOffset);
     this.camera.position.lerp(desired, 0.12);
-    const lookAt = position.clone().add(new THREE.Vector3(0, 1.5, 0));
-    this.camera.lookAt(lookAt);
+    this.camera.lookAt(position.clone().add(new THREE.Vector3(0, 1.5, 0)));
   }
 
   private animate = (): void => {
@@ -151,14 +232,16 @@ export class Game {
 
     this.handleInput();
 
-    const groundHeight = this.terrain.sampleBilinear(
-      this.car.state.position.x,
-      this.car.state.position.z,
-    );
-    this.car.update(delta, this.input, groundHeight);
-    this.updateCamera();
+    if (!this.editing) {
+      this.car.update(delta, this.input, this.surface);
+      this.speedEl.textContent = `${this.car.speedKmh} km/h`;
+      this.rpmEl.textContent = `${this.car.rpm} RPM`;
+      this.gearEl.textContent = `Gear ${this.car.gear}`;
+    }
 
-    this.speedEl.textContent = `${this.car.speedKmh} km/h`;
+    this.updateCamera();
+    this.input.endFrame();
+
     this.stats.update();
     this.renderer.render(this.scene, this.camera);
   };
@@ -166,6 +249,7 @@ export class Game {
   dispose(): void {
     window.removeEventListener('resize', this.onResize);
     this.input.dispose();
+    this.editor.dispose();
     this.renderer.dispose();
   }
 }

@@ -53,17 +53,122 @@
         font-weight: 700;
         margin-top: 4px;
       }
+
+      #car-name {
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+
+      .gauge-row {
+        display: flex;
+        gap: 16px;
+        margin-top: 4px;
+      }
+
+      #editor-panel {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        width: 280px;
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+        padding: 14px;
+        background: rgba(10, 10, 20, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        z-index: 20;
+        font-size: 12px;
+      }
+
+      #editor-panel h2 {
+        margin: 0 0 10px;
+        font-size: 16px;
+      }
+
+      .editor-section {
+        margin-bottom: 12px;
+      }
+
+      .editor-section label {
+        display: block;
+        margin-bottom: 4px;
+        opacity: 0.75;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .btn-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .btn-row button,
+      .palette-grid button {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #eee;
+        border-radius: 6px;
+        padding: 5px 8px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+
+      .btn-row button:hover,
+      .palette-grid button:hover {
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+      .btn-row button.active,
+      .palette-grid button.selected {
+        background: #3d6af0;
+        border-color: #5a84ff;
+      }
+
+      .palette-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .palette-category {
+        margin-bottom: 8px;
+      }
+
+      #horizon-select {
+        width: 100%;
+        background: #1a1a2e;
+        color: #eee;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 6px;
+      }
+
+      .editor-hint {
+        opacity: 0.6;
+        font-size: 11px;
+        margin-top: 8px;
+      }
     </style>
   </head>
   <body>
-    <div id="loading">Loading track assets…</div>
+    <div id="loading">Loading Stunts…</div>
     <div id="hud" hidden>
       <h1>STUNTS</h1>
-      <div>W/S — accelerate / brake</div>
-      <div>A/D — steer</div>
-      <div>R — reset to start</div>
-      <div>C — toggle camera</div>
-      <div id="speed">0 km/h</div>
+      <div id="drive-hud">
+        <div id="car-name">Corvette ZR1</div>
+        <div class="gauge-row">
+          <div id="speed">0 km/h</div>
+          <div id="rpm">0 RPM</div>
+          <div id="gear">Gear 1</div>
+        </div>
+        <div style="margin-top: 8px">W/S — throttle / brake</div>
+        <div>A/D — steer</div>
+        <div>Q/Z — change car</div>
+        <div>R — reset · C — camera</div>
+        <div>E — track editor</div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

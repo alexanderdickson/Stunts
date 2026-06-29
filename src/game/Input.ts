@@ -1,5 +1,6 @@
 export class InputManager {
   private keys = new Set<string>();
+  private justPressed = new Set<string>();
 
   constructor() {
     window.addEventListener('keydown', this.onKeyDown);
@@ -8,6 +9,9 @@ export class InputManager {
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
+    if (!this.keys.has(event.code)) {
+      this.justPressed.add(event.code);
+    }
     this.keys.add(event.code);
   };
 
@@ -17,10 +21,19 @@ export class InputManager {
 
   private onBlur = (): void => {
     this.keys.clear();
+    this.justPressed.clear();
   };
+
+  endFrame(): void {
+    this.justPressed.clear();
+  }
 
   isDown(code: string): boolean {
     return this.keys.has(code);
+  }
+
+  wasPressed(code: string): boolean {
+    return this.justPressed.has(code);
   }
 
   get accelerate(): boolean {
@@ -40,11 +53,23 @@ export class InputManager {
   }
 
   get reset(): boolean {
-    return this.isDown('KeyR');
+    return this.wasPressed('KeyR');
   }
 
   get toggleCamera(): boolean {
-    return this.isDown('KeyC');
+    return this.wasPressed('KeyC');
+  }
+
+  get toggleEditor(): boolean {
+    return this.wasPressed('KeyE');
+  }
+
+  get nextCar(): boolean {
+    return this.wasPressed('KeyQ');
+  }
+
+  get prevCar(): boolean {
+    return this.wasPressed('KeyZ');
   }
 
   dispose(): void {

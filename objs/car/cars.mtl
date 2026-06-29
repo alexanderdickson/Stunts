@@ -1,0 +1,23 @@
+newmtl CarRed
+Kd 0.80 0.12 0.10
+d 1.0
+
+newmtl CarYellow
+Kd 0.90 0.75 0.10
+d 1.0
+
+newmtl CarBlue
+Kd 0.10 0.25 0.70
+d 1.0
+
+newmtl CarWhite
+Kd 0.92 0.92 0.90
+d 1.0
+
+newmtl CarSilver
+Kd 0.70 0.72 0.75
+d 1.0
+
+newmtl CarWheel
+Kd 0.12 0.12 0.12
+d 1.0

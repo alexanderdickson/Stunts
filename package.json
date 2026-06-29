@@ -1,12 +1,14 @@
 {
   "name": "stunts",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate:cars": "node scripts/generate-car-objs.mjs"
   },
   "dependencies": {
     "three": "^0.170.0"

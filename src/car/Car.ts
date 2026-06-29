@@ -2,77 +2,54 @@ import * as THREE from 'three';
 import { TILE_SIZE } from '../track/TrackConstants';
 import type { StartPosition } from '../track/TrackParser';
 import type { InputManager } from '../game/Input';
+import type { CarDefinition, CarId } from './CarDefinitions';
+import { getCarDefinition } from './CarDefinitions';
+import { loadCarModel } from './CarModelLoader';
+import { CarPhysics } from '../physics/CarPhysics';
+import type { SurfaceSampler } from '../physics/SurfaceSampler';
 
-export interface CarState {
-  position: THREE.Vector3;
-  velocity: THREE.Vector3;
-  heading: number;
-  speed: number;
-  airborne: boolean;
-}
-
-const MAX_SPEED = 220;
-const ACCELERATION = 90;
-const BRAKE_FORCE = 140;
-const FRICTION = 35;
-const STEER_SPEED = 2.4;
-const GRAVITY = 28;
-const GROUND_CLEARANCE = 1.2;
+const GROUND_CLEARANCE = 0.5;
 
 export class Car {
   readonly mesh: THREE.Group;
-  state: CarState;
+  readonly physics: CarPhysics;
+  readonly definition: CarDefinition;
+  private wheelMeshes: THREE.Object3D[] = [];
   private start: StartPosition;
 
-  constructor(start: StartPosition) {
+  private constructor(
+    definition: CarDefinition,
+    model: THREE.Object3D,
+    start: StartPosition,
+  ) {
+    this.definition = definition;
     this.start = start;
-    this.mesh = this.createMesh();
-    this.state = this.createInitialState();
+    this.mesh = new THREE.Group();
+    this.mesh.add(model);
+
+    const startPos = this.startToWorld(start);
+    this.physics = new CarPhysics(definition, startPos, start.rotY);
+    this.collectWheelMeshes(model);
     this.syncMesh();
   }
 
-  private createMesh(): THREE.Group {
-    const group = new THREE.Group();
-
-    const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xe63946 });
-    const trimMaterial = new THREE.MeshLambertMaterial({ color: 0x1d3557 });
-    const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
-
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.7, 4.4), bodyMaterial);
-    body.position.y = 0.9;
-    group.add(body);
-
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.55, 2.0), trimMaterial);
-    cabin.position.set(0, 1.35, -0.2);
-    group.add(cabin);
-
-    const wheelGeometry = new THREE.CylinderGeometry(0.38, 0.38, 0.35, 12);
-    const wheelPositions: Array<[number, number, number]> = [
-      [-1.0, 0.38, 1.4],
-      [1.0, 0.38, 1.4],
-      [-1.0, 0.38, -1.4],
-      [1.0, 0.38, -1.4],
-    ];
-
-    for (const [x, y, z] of wheelPositions) {
-      const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(x, y, z);
-      group.add(wheel);
-    }
-
-    return group;
+  static async create(id: CarId, start: StartPosition): Promise<Car> {
+    const definition = getCarDefinition(id);
+    const model = await loadCarModel(id);
+    return new Car(definition, model, start);
   }
 
-  private createInitialState(): CarState {
-    const position = this.startToWorld(this.start);
-    return {
-      position,
-      velocity: new THREE.Vector3(),
-      heading: this.start.rotY,
-      speed: 0,
-      airborne: false,
-    };
+  private collectWheelMeshes(model: THREE.Object3D): void {
+    model.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        for (const mat of mats) {
+          if ('name' in mat && mat.name === 'CarWheel') {
+            this.wheelMeshes.push(child);
+          }
+        }
+      }
+    });
   }
 
   private startToWorld(start: StartPosition): THREE.Vector3 {
@@ -84,63 +61,52 @@ export class Car {
   }
 
   reset(): void {
-    this.state = this.createInitialState();
+    const pos = this.startToWorld(this.start);
+    this.physics.reset(pos, this.start.rotY);
     this.syncMesh();
   }
 
-  update(delta: number, input: InputManager, groundHeight: number): void {
-    const { state } = this;
+  setStart(start: StartPosition): void {
+    this.start = start;
+    this.reset();
+  }
 
-    if (input.accelerate) {
-      state.speed += ACCELERATION * delta;
-    }
-    if (input.brake) {
-      state.speed -= BRAKE_FORCE * delta;
-    }
+  update(delta: number, input: InputManager, surface: SurfaceSampler): void {
+    const throttle = input.accelerate ? 1 : 0;
+    const brake = input.brake ? 1 : 0;
+    const steer = (input.steerRight ? 1 : 0) - (input.steerLeft ? 1 : 0);
 
-    if (!input.accelerate && !input.brake) {
-      const friction = FRICTION * delta;
-      if (state.speed > friction) {
-        state.speed -= friction;
-      } else if (state.speed < -friction) {
-        state.speed += friction;
-      } else {
-        state.speed = 0;
-      }
-    }
-
-    state.speed = THREE.MathUtils.clamp(state.speed, -40, MAX_SPEED);
-
-    const steerInput = (input.steerRight ? 1 : 0) - (input.steerLeft ? 1 : 0);
-    const steerFactor = THREE.MathUtils.clamp(Math.abs(state.speed) / 60, 0.15, 1);
-    state.heading -= steerInput * STEER_SPEED * steerFactor * delta * Math.sign(state.speed || 1);
-
-    const forward = new THREE.Vector3(Math.sin(state.heading), 0, Math.cos(state.heading));
-    state.velocity.copy(forward).multiplyScalar(state.speed * 0.12);
-
-    state.position.x += state.velocity.x * delta;
-    state.position.z += state.velocity.z * delta;
-
-    const targetY = groundHeight + GROUND_CLEARANCE;
-    if (state.position.y > targetY + 0.05) {
-      state.velocity.y -= GRAVITY * delta;
-      state.position.y += state.velocity.y * delta;
-      state.airborne = true;
-    } else {
-      state.position.y = targetY;
-      state.velocity.y = 0;
-      state.airborne = false;
-    }
-
+    this.physics.update(delta, throttle, brake, steer, (x, z) => surface.sampleWheel(x, z));
     this.syncMesh();
+    this.animateWheels(delta);
   }
 
   get speedKmh(): number {
-    return Math.round(Math.abs(this.state.speed));
+    return this.physics.speedKmh;
+  }
+
+  get rpm(): number {
+    return Math.round(this.physics.state.rpm);
+  }
+
+  get gear(): number {
+    return this.physics.state.gear;
   }
 
   private syncMesh(): void {
-    this.mesh.position.copy(this.state.position);
-    this.mesh.rotation.y = this.state.heading;
+    const { position, quaternion } = this.physics.state;
+    this.mesh.position.copy(position);
+    this.mesh.quaternion.copy(quaternion);
+  }
+
+  private animateWheels(delta: number): void {
+    const speed = this.physics.state.speed;
+    for (let i = 0; i < this.wheelMeshes.length; i++) {
+      const wheel = this.wheelMeshes[i];
+      wheel.rotation.x += speed * delta * 0.08;
+      if (i < 2) {
+        wheel.rotation.y = this.physics.state.wheels[i]?.steerAngle ?? 0;
+      }
+    }
   }
 }
