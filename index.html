@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stunts</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: 'Courier New', 'Lucida Console', monospace;
+        background: #000084;
+        color: #fcfcfc;
+      }
+
+      #hud {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        padding: 10px 14px;
+        background: #0000aa;
+        border: 2px solid #fcfcfc;
+        font-size: 12px;
+        line-height: 1.5;
+        pointer-events: auto;
+        z-index: 10;
+        image-rendering: pixelated;
+      }
+
+      #hud h1 {
+        margin: 0 0 4px;
+        font-size: 16px;
+        font-weight: 700;
+        color: #fcfc54;
+        letter-spacing: 0.1em;
+      }
+
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000084;
+        color: #fcfc54;
+        font-size: 18px;
+        z-index: 100;
+      }
+
+      #loading[hidden] {
+        display: none;
+      }
+
+      #speed {
+        font-size: 22px;
+        font-weight: 700;
+        color: #fcfc54;
+      }
+
+      #car-name {
+        font-weight: 700;
+        color: #58fcfc;
+        margin-bottom: 2px;
+      }
+
+      .gauge-row {
+        display: flex;
+        gap: 14px;
+        margin-top: 2px;
+      }
+
+      #music-btn {
+        margin-top: 6px;
+        background: #0058fc;
+        border: 2px solid #fcfcfc;
+        color: #fcfcfc;
+        font-family: inherit;
+        font-size: 11px;
+        padding: 3px 8px;
+        cursor: pointer;
+      }
+
+      #music-btn:hover {
+        background: #00fcfc;
+        color: #000084;
+      }
+
+      #music-btn.active {
+        background: #00a800;
+      }
+
+      /* ── DOS-style track editor dock (bottom, like original) ── */
+      #editor-dock {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(180deg, #585858 0%, #404040 8%, #303030 100%);
+        border-top: 3px solid #fcfcfc;
+        z-index: 30;
+        image-rendering: pixelated;
+        box-shadow: 0 -4px 0 #202020;
+      }
+
+      .editor-titlebar {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        padding: 4px 10px;
+        background: #0000aa url('/texs/editor/editor-titlebar.png') repeat-x center;
+        background-size: auto 100%;
+        border-bottom: 2px solid #fcfcfc;
+        min-height: 28px;
+      }
+
+      .editor-title {
+        font-weight: 700;
+        color: #fcfc54;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+      }
+
+      .editor-subtitle {
+        font-size: 11px;
+        color: #58fcfc;
+      }
+
+      .category-tabs {
+        display: flex;
+        gap: 2px;
+        padding: 4px 8px 0;
+        background: #c0c0c0;
+        border-bottom: 2px solid #808080;
+      }
+
+      .category-tab {
+        background: #808080;
+        border: 2px outset #d4d4d4;
+        color: #000;
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .category-tab kbd {
+        background: #404040;
+        color: #fcfc54;
+        padding: 0 4px;
+        font-size: 10px;
+        border: 1px solid #000;
+      }
+
+      .category-tab:hover {
+        background: #a0a0a0;
+      }
+
+      .category-tab.active {
+        background: #fcfcfc;
+        border-style: inset;
+        color: #0000aa;
+      }
+
+      .tile-icon-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 8px 10px;
+        background: #404040;
+        min-height: 52px;
+        border-bottom: 2px solid #202020;
+      }
+
+      .tile-icon-btn {
+        width: 40px;
+        height: 40px;
+        padding: 2px;
+        background: #808080;
+        border: 2px outset #d4d4d4;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .tile-icon-btn img {
+        width: 32px;
+        height: 32px;
+        image-rendering: pixelated;
+        pointer-events: none;
+      }
+
+      .tile-icon-btn:hover {
+        background: #a8a8a8;
+      }
+
+      .tile-icon-btn.selected {
+        border: 2px inset #fcfc54;
+        background: #0000aa;
+        box-shadow: 0 0 0 1px #fcfc54;
+      }
+
+      .editor-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 10px;
+        background: #c0c0c0;
+        font-size: 11px;
+        color: #000;
+        flex-wrap: wrap;
+      }
+
+      .editor-toolbar button {
+        background: #808080;
+        border: 2px outset #d4d4d4;
+        font-family: inherit;
+        font-size: 11px;
+        padding: 2px 8px;
+        cursor: pointer;
+        color: #000;
+      }
+
+      .editor-toolbar button:hover {
+        background: #a0a0a0;
+      }
+
+      .horizon-label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: auto;
+      }
+
+      .horizon-label select {
+        background: #fcfcfc;
+        border: 2px inset #808080;
+        font-family: inherit;
+        font-size: 11px;
+        padding: 1px 4px;
+      }
+
+      .editor-hint {
+        font-size: 10px;
+        color: #404040;
+        width: 100%;
+        margin-top: 2px;
+      }
+
+      /* ── Selected tile preview (right side, like original palette) ── */
+      #editor-side {
+        position: fixed;
+        top: 8px;
+        right: 8px;
+        width: 80px;
+        padding: 8px;
+        background: #404040;
+        border: 3px outset #c0c0c0;
+        z-index: 25;
+        text-align: center;
+        image-rendering: pixelated;
+      }
+
+      .side-label {
+        font-size: 10px;
+        color: #fcfc54;
+        margin-bottom: 4px;
+        font-weight: 700;
+      }
+
+      .selected-tile-icon {
+        width: 48px;
+        height: 48px;
+        image-rendering: pixelated;
+        border: 2px inset #202020;
+        background: #808080;
+      }
+
+      .selected-tile-name {
+        font-size: 9px;
+        color: #fcfcfc;
+        margin-top: 4px;
+        line-height: 1.2;
+      }
+
+      .selected-tile-hex {
+        font-size: 10px;
+        color: #58fcfc;
+        margin-top: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading">Loading Stunts…</div>
+    <div id="hud" hidden>
+      <h1>STUNTS</h1>
+      <div id="drive-hud">
+        <div id="car-name">Corvette ZR1</div>
+        <div class="gauge-row">
+          <div id="speed">0 km/h</div>
+          <div id="rpm">0 RPM</div>
+          <div id="gear">Gear 1</div>
+        </div>
+        <div style="margin-top: 6px">W/S — throttle / brake</div>
+        <div>A/D — steer · Q/Z — car</div>
+        <div>E — editor · M — music</div>
+        <button id="music-btn" type="button">♪ Music Off</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

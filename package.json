@@ -1,0 +1,31 @@
+{
+  "name": "stunts",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "generate:cars": "node scripts/generate-car-objs.mjs",
+    "generate:icons": "node scripts/generate-tile-icons.mjs",
+    "test": "node scripts/smoke-test.mjs && node scripts/browser-smoke.mjs && node scripts/visual-map-test.mjs",
+    "test:unit": "node scripts/smoke-test.mjs",
+    "test:browser": "node scripts/browser-smoke.mjs",
+    "test:visual": "node scripts/visual-map-test.mjs",
+    "test:visual:update": "UPDATE_BASELINES=1 node scripts/visual-map-test.mjs",
+    "generate:tracks": "node scripts/generate-test-tracks.mjs"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.170.0",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.61.1",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}
