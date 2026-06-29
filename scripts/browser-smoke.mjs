@@ -12,13 +12,28 @@ const BASE = `http://localhost:${PORT}`;
 let preview;
 const consoleErrors = [];
 const pageErrors = [];
+const root = new URL('..', import.meta.url).pathname;
+
+function buildApp() {
+  return new Promise((resolve, reject) => {
+    console.log('Building app (vite build)…');
+    const build = spawn('pnpm', ['build'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    build.stdout?.on('data', (c) => (out += c.toString()));
+    build.stderr?.on('data', (c) => (out += c.toString()));
+    build.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`vite build failed (exit ${code})\n${out}`));
+    });
+  });
+}
 
 async function startPreview() {
   preview = spawn(
     'pnpm',
     ['exec', 'vite', 'preview', '--port', String(PORT), '--host', '127.0.0.1', '--strictPort'],
     {
-      cwd: new URL('..', import.meta.url).pathname,
+      cwd: root,
       stdio: ['ignore', 'pipe', 'pipe'],
     },
   );
@@ -37,6 +52,7 @@ async function startPreview() {
 }
 
 async function main() {
+  await buildApp();
   console.log('Starting preview server…');
   await startPreview();
 

@@ -31,6 +31,22 @@ const MIN_NON_BG_PIXELS = 8000;
 
 let preview;
 
+function buildApp() {
+  // The preview server serves dist/, so a stale build would silently render
+  // old code (e.g. an unhidden loading overlay). Always build first.
+  return new Promise((resolve, reject) => {
+    console.log('Building app (vite build)…');
+    const build = spawn('pnpm', ['build'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    build.stdout?.on('data', (c) => (out += c.toString()));
+    build.stderr?.on('data', (c) => (out += c.toString()));
+    build.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`vite build failed (exit ${code})\n${out}`));
+    });
+  });
+}
+
 async function startPreview() {
   preview = spawn(
     'pnpm',
@@ -143,6 +159,7 @@ async function main() {
     console.log('Mode: UPDATE baselines\n');
   }
 
+  await buildApp();
   await startPreview();
 
   const browser = await chromium.launch({ headless: true });
