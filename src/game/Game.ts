@@ -82,8 +82,13 @@ export class Game {
         0.1,
         2000,
       );
+      // Looking straight down -Y: the default up (0,1,0) is parallel to the
+      // view direction and yields a degenerate orientation. Use -Z as up so
+      // the overhead frame is well defined (screen-up maps to far/north).
+      this.camera.up.set(0, 0, -1);
       this.camera.position.set(centerX, 400, centerZ);
       this.camera.lookAt(centerX, 0, centerZ);
+      this.camera.updateProjectionMatrix();
     } else {
       this.camera = new THREE.PerspectiveCamera(55, width / height, 0.5, 2000);
     }
