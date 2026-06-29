@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * Visual regression tests — overhead camera screenshots of 12 test maps.
+ * Visual regression tests — overhead camera screenshots of the 12 3D test
+ * tracks, pixel-diffed against committed baseline images (no colour
+ * heuristics; the baseline render is the source of truth).
  *
  * Usage:
- *   pnpm test:visual              # compare against baselines
+ *   pnpm test:visual              # pixel-diff against baselines
  *   pnpm test:visual:update       # regenerate baseline PNGs
  */
 import { chromium } from 'playwright';
@@ -26,8 +28,9 @@ const MANIFEST = join(root, 'trks/test/manifest.json');
 const UPDATE_BASELINES = process.env.UPDATE_BASELINES === '1';
 const WIDTH = 640;
 const HEIGHT = 480;
-const MAX_DIFF_RATIO = 0.08;
-const MIN_NON_BG_PIXELS = 8000;
+// A rendered track may differ from its baseline by at most this fraction of
+// pixels before the visual regression is considered a failure.
+const MAX_DIFF_RATIO = 0.02;
 
 let preview;
 
@@ -70,58 +73,6 @@ async function startPreview() {
     await sleep(500);
   }
   throw new Error(`Preview server did not start on port ${PORT}\n${stderr}`);
-}
-
-const SKY = [0x87, 0xce, 0xeb];
-const LOADING_BLUE = [0x00, 0x00, 0x84];
-
-function dist(r, g, b, c) {
-  return Math.abs(r - c[0]) + Math.abs(g - c[1]) + Math.abs(b - c[2]);
-}
-
-/**
- * Inspect a rendered frame and report metrics used to distinguish a real
- * overhead track render from failure modes such as the "Loading Stunts…"
- * screen (a near-solid #000084 fill) or an empty/blank canvas.
- */
-function analyzeFrame(png) {
-  let total = 0;
-  let nonSky = 0;
-  let loadingBlue = 0;
-  const colors = new Set();
-  for (let i = 0; i < png.data.length; i += 4) {
-    const r = png.data[i];
-    const g = png.data[i + 1];
-    const b = png.data[i + 2];
-    const a = png.data[i + 3];
-    if (a < 16) continue;
-    total++;
-    if (dist(r, g, b, SKY) > 40) nonSky++;
-    if (dist(r, g, b, LOADING_BLUE) < 24) loadingBlue++;
-    // 12-bit colour bucket — enough to tell a varied map from a flat fill.
-    colors.add(((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4));
-  }
-  return {
-    total,
-    nonSky,
-    loadingBlueRatio: total ? loadingBlue / total : 0,
-    uniqueColors: colors.size,
-  };
-}
-
-/** Throws with a descriptive reason if the frame is not a valid track render. */
-function assertValidTrackFrame(id, frame) {
-  if (frame.loadingBlueRatio > 0.4) {
-    throw new Error(
-      `captured the loading screen (${(frame.loadingBlueRatio * 100).toFixed(0)}% loading-blue), not a track`,
-    );
-  }
-  if (frame.uniqueColors < 5) {
-    throw new Error(`frame is near-uniform (${frame.uniqueColors} colours) — nothing rendered`);
-  }
-  if (frame.nonSky < MIN_NON_BG_PIXELS) {
-    throw new Error(`too few track pixels (${frame.nonSky}) — likely empty render`);
-  }
 }
 
 function comparePng(actualBuf, baselineBuf) {
@@ -185,24 +136,22 @@ async function main() {
       const screenshot = await page.locator('canvas').screenshot({ type: 'png' });
       const baselinePath = join(BASELINE_DIR, `${id}.png`);
 
-      const frame = analyzeFrame(PNG.sync.read(screenshot));
-      assertValidTrackFrame(id, frame);
       fingerprints.set(id, createHash('sha1').update(screenshot).digest('hex'));
-
-      const meta = `${frame.nonSky} px, ${frame.uniqueColors} colours`;
 
       if (UPDATE_BASELINES || !existsSync(baselinePath)) {
         writeFileSync(baselinePath, screenshot);
-        console.log(`  ✓ ${id}: baseline ${UPDATE_BASELINES ? 'updated' : 'created'} (${meta})`);
+        console.log(`  ✓ ${id}: baseline ${UPDATE_BASELINES ? 'updated' : 'created'}`);
         passed++;
         continue;
       }
 
+      // Pure visual regression: pixel-diff the rendered 3D track against its
+      // committed baseline image.
       const baseline = readFileSync(baselinePath);
       const { match, ratio, diffPng } = comparePng(screenshot, baseline);
 
       if (match) {
-        console.log(`  ✓ ${id}: matches baseline (diff ${(ratio * 100).toFixed(2)}%, ${meta})`);
+        console.log(`  ✓ ${id}: matches baseline (diff ${(ratio * 100).toFixed(2)}%)`);
         passed++;
       } else {
         console.log(`  ✗ ${id}: differs from baseline (diff ${(ratio * 100).toFixed(2)}%)`);
