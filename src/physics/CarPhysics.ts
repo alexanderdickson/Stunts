@@ -178,7 +178,12 @@ export class CarPhysics {
     state.airborne = groundedCount < 2;
 
     if (groundedCount > 0) {
-      avgNormal.divideScalar(groundedCount).normalize();
+      avgNormal.divideScalar(groundedCount);
+      if (avgNormal.lengthSq() > 1e-6) {
+        avgNormal.normalize();
+      } else {
+        avgNormal.set(0, 1, 0);
+      }
       const targetHeight = avgHeight / groundedCount + def.wheelRadius + def.suspensionRest * 0.5;
       if (!state.airborne) {
         state.position.y = THREE.MathUtils.lerp(state.position.y, targetHeight, dt * 12);
@@ -189,6 +194,11 @@ export class CarPhysics {
     }
 
     state.position.addScaledVector(state.velocity, dt);
+
+    if (!Number.isFinite(state.position.x) || !Number.isFinite(state.velocity.x)) {
+      state.velocity.set(0, 0, 0);
+      state.angularVelocity.set(0, 0, 0);
+    }
 
     const dq = new THREE.Quaternion().setFromEuler(
       new THREE.Euler(
@@ -245,11 +255,10 @@ export class CarPhysics {
     ));
 
     const rollAngle = Math.asin(THREE.MathUtils.clamp(_right.y, -0.8, 0.8));
-    const targetRoll = Math.asin(THREE.MathUtils.clamp(
-      _right.dot(_temp.copy(normal).cross(_forward).normalize()),
-      -0.5,
-      0.5,
-    ));
+    _temp.crossVectors(normal, _forward);
+    const targetRoll = _temp.lengthSq() > 1e-6
+      ? Math.asin(THREE.MathUtils.clamp(_right.dot(_temp.normalize()), -0.5, 0.5))
+      : rollAngle;
 
     state.angularVelocity.x = THREE.MathUtils.lerp(
       state.angularVelocity.x,

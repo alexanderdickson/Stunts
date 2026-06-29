@@ -35,16 +35,21 @@ Open http://localhost:5173
 | R | Reset to start |
 | C | Toggle chase / hood camera |
 | E | Enter track editor |
+| M | Toggle music |
+| F1–F7 | Editor tile categories |
+| T | Top-down camera (in editor) |
 
 ### Track Editor
 
 | Action | Description |
 |--------|-------------|
-| Click / drag | Paint tiles on the grid |
-| Layer toggle | Switch between track and terrain |
+| Click / drag | Paint tiles (full 3D OBJ models appear instantly) |
+| F1–F7 | Switch category (Basic, Road, Stunts, Banks, Structures, Scenery, Terrain) |
 | Save .TRK | Download track file |
 | Load .TRK | Import a track file |
 | New Track | Start with a blank layout |
+
+Tile palette icons are 32×32 VGA-style images in `public/texs/editor/tiles/`. Regenerate with `pnpm generate:icons`.
 
 ## Build
 
@@ -52,6 +57,16 @@ Open http://localhost:5173
 pnpm build
 pnpm preview
 ```
+
+## Test
+
+Automated verification (asset checks, track I/O, headless browser smoke test):
+
+```bash
+pnpm test
+```
+
+This verifies the production build loads, WebGL renders, the editor opens, music toggles, and driving updates the HUD — all in headless Chrome via Playwright.
 
 ## Car Models
 
@@ -71,6 +86,7 @@ src/
   physics/    Stunts-style simulation engine
   track/      TRK parser/serializer, tile placement, model loading
   editor/     Track editor UI and palette
+  audio/      Procedural Stunts-inspired music
   game/       Game loop, input, rendering
 objs/trk/     Classic track tile OBJ models
 objs/car/     Car OBJ models

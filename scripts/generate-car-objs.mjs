@@ -89,20 +89,20 @@ function writeObj(id, spec) {
   }
 
   lines.push('usemtl CarWheel');
-  const wheelBase = allVerts.length;
+  let vi = allVerts.length + 1;
   for (const [wx, wy, wz] of wheelOffsets) {
-    const segments = 8;
-    const ring = [];
-    for (let i = 0; i < segments; i++) {
-      const a = (i / segments) * Math.PI * 2;
-      ring.push([wx + Math.cos(a) * wheelR, wy + Math.sin(a) * wheelR, wz]);
-    }
-    const start = wheelBase + wheelOffsets.indexOf([wx, wy, wz]) * (segments + 2);
-    for (const [x, y, z] of ring) {
+    const hw = wheelW / 2, hr = wheelR;
+    const wheelVerts = [
+      [wx, wy - hr, wz - hw], [wx, wy - hr, wz + hw], [wx, wy + hr, wz + hw], [wx, wy + hr, wz - hw],
+      [wx, wy - hr, wz - hw], [wx, wy - hr, wz + hw], [wx, wy + hr, wz + hw], [wx, wy + hr, wz - hw],
+    ];
+    for (const [x, y, z] of wheelVerts) {
       lines.push(`v ${x.toFixed(1)} ${y.toFixed(1)} ${z.toFixed(1)}`);
     }
-    lines.push(`v ${wx.toFixed(1)} ${wy.toFixed(1)} ${(wz + wheelW / 2).toFixed(1)}`);
-    lines.push(`v ${wx.toFixed(1)} ${wy.toFixed(1)} ${(wz - wheelW / 2).toFixed(1)}`);
+    const b = vi;
+    lines.push(`f ${b} ${b + 1} ${b + 2} ${b + 3}`);
+    lines.push(`f ${b + 4} ${b + 5} ${b + 6} ${b + 7}`);
+    vi += 8;
   }
 
   writeFileSync(join(outDir, `${id}.obj`), lines.join('\n') + '\n');
