@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stunts</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        background: #1a1a2e;
+        color: #eee;
+      }
+
+      #hud {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        padding: 12px 16px;
+        background: rgba(0, 0, 0, 0.55);
+        border-radius: 8px;
+        font-size: 13px;
+        line-height: 1.6;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      #hud h1 {
+        margin: 0 0 6px;
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #111;
+        font-size: 20px;
+        z-index: 100;
+      }
+
+      #speed {
+        font-size: 28px;
+        font-weight: 700;
+        margin-top: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading">Loading track assets…</div>
+    <div id="hud" hidden>
+      <h1>STUNTS</h1>
+      <div>W/S — accelerate / brake</div>
+      <div>A/D — steer</div>
+      <div>R — reset to start</div>
+      <div>C — toggle camera</div>
+      <div id="speed">0 km/h</div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
