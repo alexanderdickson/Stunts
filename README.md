@@ -7,7 +7,8 @@ A TypeScript / WebGL implementation of the classic DOS stunt-driving game.
 
 - **11 original cars** — Corvette, Countach, Ferrari GT, Jaguar, Lancia, Porsche variants, Audi Quattro
 - **Stunts-style physics** — engine torque curves, gearing, suspension, weight transfer, surface grip
-- **Track editor** — paint 30×30 track/terrain grids, set horizon, save/load `.TRK` files
+- **Track editor** — DOS-style icon palette (F1–F7), paint while driving, save/load `.TRK`
+- **Original-style music** — procedural AdLib-inspired soundtrack (toggle with M)
 - **Classic track rendering** — original OBJ tile library and binary `.TRK` format
 - **Horizon backgrounds** — alpine, tropical, desert, city, country themes
 

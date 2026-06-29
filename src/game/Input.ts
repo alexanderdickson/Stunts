@@ -68,6 +68,10 @@ export class InputManager {
     return this.wasPressed('KeyT');
   }
 
+  get toggleMusic(): boolean {
+    return this.wasPressed('KeyM');
+  }
+
   get nextCar(): boolean {
     return this.wasPressed('KeyQ');
   }

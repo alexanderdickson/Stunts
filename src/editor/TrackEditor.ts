@@ -5,8 +5,9 @@ import type { TrackObjectMap } from '../track/ModelLoader';
 import type { TrackData } from '../track/TrackParser';
 import { downloadTrackFile } from '../track/TrackSerializer';
 import {
+  EDITOR_CATEGORIES,
+  getCategoryByFKey,
   getPaletteByCategory,
-  getPaletteCategories,
   HORIZON_OPTIONS,
   TILE_PALETTE,
   type TilePaletteEntry,
@@ -20,16 +21,18 @@ export interface TrackEditorCallbacks {
 }
 
 export class TrackEditor {
-  private panel: HTMLElement;
+  private dock: HTMLElement;
+  private sidePanel: HTMLElement;
   private gridOverlay: THREE.Group | null = null;
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
   private plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private editing = false;
-  private layer: EditorLayer = 'track';
+  private activeCategory = EDITOR_CATEGORIES[1];
   private selectedTile: TilePaletteEntry;
   private isPainting = false;
   private trackObjects: TrackObjectMap | null = null;
+  private onKeyDown: (e: KeyboardEvent) => void;
 
   constructor(
     private scene: THREE.Scene,
@@ -40,9 +43,24 @@ export class TrackEditor {
     private trackGroup: THREE.Group,
   ) {
     this.selectedTile = getPaletteByCategory('track', 'Road')[0];
-    this.panel = this.buildPanel();
-    document.body.appendChild(this.panel);
+    this.dock = this.buildDock();
+    this.sidePanel = this.buildSidePanel();
+    document.body.appendChild(this.dock);
+    document.body.appendChild(this.sidePanel);
     this.bindEvents();
+
+    this.onKeyDown = (e: KeyboardEvent) => {
+      if (!this.editing) return;
+      const match = e.code.match(/^F(\d+)$/);
+      if (match) {
+        const cat = getCategoryByFKey(`F${match[1]}`);
+        if (cat) {
+          e.preventDefault();
+          this.setCategory(cat.key);
+        }
+      }
+    };
+    window.addEventListener('keydown', this.onKeyDown);
   }
 
   setTrackObjects(objects: TrackObjectMap): void {
@@ -55,7 +73,8 @@ export class TrackEditor {
 
   toggle(): void {
     this.editing = !this.editing;
-    this.panel.hidden = !this.editing;
+    this.dock.hidden = !this.editing;
+    this.sidePanel.hidden = !this.editing;
     this.callbacks.onModeChanged(this.editing);
     if (this.editing) {
       this.showGridOverlay();
@@ -64,52 +83,59 @@ export class TrackEditor {
     }
   }
 
-  private buildPanel(): HTMLElement {
+  private buildDock(): HTMLElement {
+    const dock = document.createElement('div');
+    dock.id = 'editor-dock';
+    dock.hidden = true;
+    dock.innerHTML = `
+      <div class="editor-titlebar">
+        <span class="editor-title">TRACK EDITOR</span>
+        <span class="editor-subtitle">4D Sports Driving</span>
+      </div>
+      <div class="category-tabs" id="category-tabs"></div>
+      <div class="tile-icon-strip" id="tile-icon-strip"></div>
+      <div class="editor-toolbar">
+        <button id="editor-save" title="Save track">💾 Save</button>
+        <button id="editor-load" title="Load track">📂 Load</button>
+        <button id="editor-new" title="New track">📄 New</button>
+        <label class="horizon-label">Sky
+          <select id="horizon-select"></select>
+        </label>
+        <span class="editor-hint">F1–F7 categories · Click/drag to paint · Drive with WASD · E close</span>
+      </div>
+    `;
+    return dock;
+  }
+
+  private buildSidePanel(): HTMLElement {
     const panel = document.createElement('div');
-    panel.id = 'editor-panel';
+    panel.id = 'editor-side';
     panel.hidden = true;
     panel.innerHTML = `
-      <h2>Track Editor</h2>
-      <div class="editor-section">
-        <label>Layer</label>
-        <div class="btn-row">
-          <button data-layer="track" class="active">Track</button>
-          <button data-layer="terrain">Terrain</button>
-        </div>
-      </div>
-      <div class="editor-section" id="palette-container"></div>
-      <div class="editor-section">
-        <label>Horizon</label>
-        <select id="horizon-select"></select>
-      </div>
-      <div class="editor-section btn-row">
-        <button id="editor-save">Save .TRK</button>
-        <button id="editor-load">Load .TRK</button>
-        <button id="editor-new">New Track</button>
-      </div>
-      <div class="editor-hint">Drive with WASD while editing · Click/drag to paint tiles · T — top-down view · E — close panel</div>
+      <div class="side-label">Selected</div>
+      <img id="selected-tile-icon" class="selected-tile-icon" alt="" />
+      <div id="selected-tile-name" class="selected-tile-name">Road N-S</div>
+      <div id="selected-tile-hex" class="selected-tile-hex">0x04</div>
     `;
     return panel;
   }
 
   private bindEvents(): void {
-    this.panel.addEventListener('click', (e) => {
+    this.renderCategoryTabs();
+    this.renderTileStrip();
+
+    this.dock.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
-      if (target.dataset.layer) {
-        this.layer = target.dataset.layer as EditorLayer;
-        this.panel.querySelectorAll('[data-layer]').forEach((btn) => btn.classList.remove('active'));
-        target.classList.add('active');
-        this.renderPalette();
+      const tab = target.closest('[data-fkey]') as HTMLElement | null;
+      if (tab?.dataset.fkey) {
+        this.setCategory(tab.dataset.fkey);
       }
-      if (target.dataset.tileByte) {
-        const byte = parseInt(target.dataset.tileByte, 10);
-        const found = TILE_PALETTE.find(
-          (t) => t.byte === byte && t.layer === this.layer && t.label === target.textContent,
-        );
+      if (target.dataset.tileId) {
+        const found = TILE_PALETTE.find((t) => t.id === target.dataset.tileId);
         if (found) {
           this.selectedTile = found;
-          this.panel.querySelectorAll('[data-tile-byte]').forEach((el) => el.classList.remove('selected'));
-          target.classList.add('selected');
+          this.renderTileStrip();
+          this.updateSelectedPreview();
         }
       }
       if (target.id === 'editor-save') {
@@ -128,7 +154,7 @@ export class TrackEditor {
     loadInput.hidden = true;
     document.body.appendChild(loadInput);
 
-    this.panel.querySelector('#editor-load')?.addEventListener('click', () => loadInput.click());
+    this.dock.querySelector('#editor-load')?.addEventListener('click', () => loadInput.click());
     loadInput.addEventListener('change', async () => {
       const file = loadInput.files?.[0];
       if (!file) return;
@@ -137,7 +163,7 @@ export class TrackEditor {
       loadInput.value = '';
     });
 
-    const horizonSelect = () => this.panel.querySelector('#horizon-select') as HTMLSelectElement;
+    const horizonSelect = () => this.dock.querySelector('#horizon-select') as HTMLSelectElement;
     for (const opt of HORIZON_OPTIONS) {
       const option = document.createElement('option');
       option.value = String(opt.value);
@@ -152,6 +178,7 @@ export class TrackEditor {
 
     this.domElement.addEventListener('mousedown', (e) => {
       if (!this.editing || e.button !== 0) return;
+      if ((e.target as HTMLElement).closest('#editor-dock, #editor-side')) return;
       this.isPainting = true;
       this.paintAtMouse(e);
     });
@@ -163,35 +190,75 @@ export class TrackEditor {
       this.isPainting = false;
     });
 
-    this.renderPalette();
+    this.updateSelectedPreview();
   }
 
-  private renderPalette(): void {
-    const container = this.panel.querySelector('#palette-container');
+  private setCategory(fKey: string): void {
+    const cat = getCategoryByFKey(fKey);
+    if (!cat) return;
+    this.activeCategory = cat;
+    const tiles = getPaletteByCategory(cat.layer, cat.category);
+    if (tiles.length > 0 && !tiles.find((t) => t.id === this.selectedTile.id)) {
+      this.selectedTile = tiles[0];
+    }
+    this.renderCategoryTabs();
+    this.renderTileStrip();
+    this.updateSelectedPreview();
+  }
+
+  private renderCategoryTabs(): void {
+    const container = this.dock.querySelector('#category-tabs');
+    if (!container) return;
+    container.innerHTML = '';
+    for (const cat of EDITOR_CATEGORIES) {
+      const btn = document.createElement('button');
+      btn.className = 'category-tab';
+      btn.dataset.fkey = cat.key;
+      btn.innerHTML = `<kbd>${cat.key}</kbd> ${cat.label}`;
+      if (cat.key === this.activeCategory.key) {
+        btn.classList.add('active');
+      }
+      container.appendChild(btn);
+    }
+  }
+
+  private renderTileStrip(): void {
+    const container = this.dock.querySelector('#tile-icon-strip');
     if (!container) return;
     container.innerHTML = '';
 
-    for (const category of getPaletteCategories(this.layer)) {
-      const section = document.createElement('div');
-      section.className = 'palette-category';
-      section.innerHTML = `<label>${category}</label>`;
-      const grid = document.createElement('div');
-      grid.className = 'palette-grid';
-
-      for (const tile of getPaletteByCategory(this.layer, category)) {
-        const btn = document.createElement('button');
-        btn.textContent = tile.label;
-        btn.dataset.tileByte = String(tile.byte);
-        btn.dataset.category = category;
-        btn.title = `0x${tile.byte.toString(16).toUpperCase()}`;
-        if (tile.byte === this.selectedTile.byte && tile.layer === this.layer) {
-          btn.classList.add('selected');
-        }
-        grid.appendChild(btn);
+    const tiles = getPaletteByCategory(this.activeCategory.layer, this.activeCategory.category);
+    for (const tile of tiles) {
+      const btn = document.createElement('button');
+      btn.className = 'tile-icon-btn';
+      btn.dataset.tileId = tile.id;
+      btn.title = `${tile.label} (0x${tile.byte.toString(16).toUpperCase()})`;
+      if (tile.id === this.selectedTile.id) {
+        btn.classList.add('selected');
       }
-      section.appendChild(grid);
-      container.appendChild(section);
+
+      const img = document.createElement('img');
+      img.src = tile.icon;
+      img.alt = tile.label;
+      img.width = 32;
+      img.height = 32;
+      img.draggable = false;
+
+      btn.appendChild(img);
+      container.appendChild(btn);
     }
+  }
+
+  private updateSelectedPreview(): void {
+    const img = this.sidePanel.querySelector('#selected-tile-icon') as HTMLImageElement;
+    const name = this.sidePanel.querySelector('#selected-tile-name');
+    const hex = this.sidePanel.querySelector('#selected-tile-hex');
+    if (img) {
+      img.src = this.selectedTile.icon;
+      img.alt = this.selectedTile.label;
+    }
+    if (name) name.textContent = this.selectedTile.label;
+    if (hex) hex.textContent = `0x${this.selectedTile.byte.toString(16).toUpperCase().padStart(2, '0')}`;
   }
 
   private paintAtMouse(event: MouseEvent): void {
@@ -208,7 +275,7 @@ export class TrackEditor {
     if (gx < 0 || gz < 0 || gx >= GRID_SIZE || gz >= GRID_SIZE) return;
 
     const data = this.getTrackData();
-    const grid = this.layer === 'track' ? data.track : data.terrain;
+    const grid = this.activeCategory.layer === 'terrain' ? data.terrain : data.track;
     if (grid[gz][gx] === this.selectedTile.byte) return;
 
     grid[gz][gx] = this.selectedTile.byte;
@@ -233,7 +300,7 @@ export class TrackEditor {
     document.body.style.backgroundSize = '100% auto';
     document.body.style.backgroundPosition = '50% 25%';
 
-    const horizonSelect = this.panel.querySelector('#horizon-select') as HTMLSelectElement;
+    const horizonSelect = this.dock.querySelector('#horizon-select') as HTMLSelectElement;
     if (horizonSelect) {
       horizonSelect.value = String(data.horizon);
     }
@@ -243,12 +310,6 @@ export class TrackEditor {
     }
   }
 
-  /** @deprecated use rebuildAll */
-  rebuildTrack(data: TrackData, trackGroup: THREE.Group): void {
-    this.trackGroup = trackGroup;
-    this.rebuildAll(data);
-  }
-
   getTrackGroup(): THREE.Group {
     return this.trackGroup;
   }
@@ -256,7 +317,7 @@ export class TrackEditor {
   private showGridOverlay(): void {
     this.hideGridOverlay();
     this.gridOverlay = new THREE.Group();
-    const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25 });
+    const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 });
 
     for (let z = 0; z <= GRID_SIZE; z++) {
       const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -284,7 +345,9 @@ export class TrackEditor {
   }
 
   dispose(): void {
-    this.panel.remove();
+    window.removeEventListener('keydown', this.onKeyDown);
+    this.dock.remove();
+    this.sidePanel.remove();
     this.hideGridOverlay();
   }
 }

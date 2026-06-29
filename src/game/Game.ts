@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
+import { stuntsMusic } from '../audio/StuntsMusic';
 import { Car } from '../car/Car';
 import { CAR_IDS } from '../car/CarDefinitions';
 import { TrackEditor } from '../editor/TrackEditor';
@@ -41,6 +42,7 @@ export class Game {
     private readonly rpmEl: HTMLElement,
     private readonly gearEl: HTMLElement,
     private readonly carNameEl: HTMLElement,
+    private readonly musicBtn: HTMLButtonElement,
   ) {}
 
   async start(): Promise<void> {
@@ -118,6 +120,14 @@ export class Game {
     this.loadingEl.hidden = true;
     this.hudEl.hidden = false;
     this.updateCarHud();
+
+    this.musicBtn.addEventListener('click', () => this.toggleMusic());
+  }
+
+  private toggleMusic(): void {
+    const on = stuntsMusic.toggle();
+    this.musicBtn.textContent = on ? '♪ Music On' : '♪ Music Off';
+    this.musicBtn.classList.toggle('active', on);
   }
 
   private onTrackChanged(data: TrackData, changedCell?: { x: number; z: number }): void {
@@ -199,6 +209,10 @@ export class Game {
     if (this.input.prevCar) {
       void this.switchCar(-1);
     }
+
+    if (this.input.toggleMusic) {
+      this.toggleMusic();
+    }
   }
 
   private updateCamera(): void {
@@ -251,6 +265,7 @@ export class Game {
     window.removeEventListener('resize', this.onResize);
     this.input.dispose();
     this.editor.dispose();
+    stuntsMusic.stop();
     this.renderer.dispose();
   }
 }
