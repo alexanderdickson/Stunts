@@ -14,10 +14,14 @@ const consoleErrors = [];
 const pageErrors = [];
 
 async function startPreview() {
-  preview = spawn('pnpm', ['run', 'preview', '--', '--port', String(PORT), '--host', '127.0.0.1'], {
-    cwd: new URL('..', import.meta.url).pathname,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  preview = spawn(
+    'pnpm',
+    ['exec', 'vite', 'preview', '--port', String(PORT), '--host', '127.0.0.1', '--strictPort'],
+    {
+      cwd: new URL('..', import.meta.url).pathname,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
 
   const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {

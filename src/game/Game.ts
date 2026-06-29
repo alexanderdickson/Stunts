@@ -6,6 +6,11 @@ import { CAR_IDS } from '../car/CarDefinitions';
 import { TrackEditor } from '../editor/TrackEditor';
 import { SurfaceSampler } from '../physics/SurfaceSampler';
 import { InputManager } from './Input';
+import {
+  getOverheadCameraBounds,
+  signalVisualTestReady,
+  type VisualTestOptions,
+} from './VisualTest';
 import { buildTrackScene, getHorizonBackground } from '../track/TrackBuilder';
 import { loadTrackObjects } from '../track/ModelLoader';
 import {
@@ -19,21 +24,23 @@ type CameraMode = 'chase' | 'hood';
 
 export class Game {
   private container!: HTMLDivElement;
-  private camera!: THREE.PerspectiveCamera;
+  private camera!: THREE.PerspectiveCamera | THREE.OrthographicCamera;
   private scene!: THREE.Scene;
   private renderer!: THREE.WebGLRenderer;
-  private stats!: Stats;
+  private stats: Stats | null = null;
   private clock = new THREE.Clock();
   private input = new InputManager();
-  private car!: Car;
+  private car: Car | null = null;
   private surface!: SurfaceSampler;
   private trackData!: TrackData;
   private trackGroup!: THREE.Group;
-  private editor!: TrackEditor;
+  private editor: TrackEditor | null = null;
   private cameraMode: CameraMode = 'chase';
   private carIndex = 0;
   private editing = false;
   private editorTopDown = false;
+  private visualFrames = 0;
+  private visualSignaled = false;
 
   constructor(
     private readonly loadingEl: HTMLElement,
@@ -43,6 +50,7 @@ export class Game {
     private readonly gearEl: HTMLElement,
     private readonly carNameEl: HTMLElement,
     private readonly musicBtn: HTMLButtonElement,
+    private readonly visualTest: VisualTestOptions | null = null,
   ) {}
 
   async start(): Promise<void> {
@@ -56,50 +64,82 @@ export class Game {
     document.body.appendChild(this.container);
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x87ceeb, 120, 520);
+    if (!this.visualTest) {
+      this.scene.fog = new THREE.Fog(0x87ceeb, 120, 520);
+    }
 
-    this.camera = new THREE.PerspectiveCamera(
-      55,
-      window.innerWidth / window.innerHeight,
-      0.5,
-      2000,
-    );
+    const width = this.visualTest?.width ?? window.innerWidth;
+    const height = this.visualTest?.height ?? window.innerHeight;
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.65);
-    const sun = new THREE.DirectionalLight(0xfff2d6, 1.1);
-    sun.position.set(80, 140, 40);
+    if (this.visualTest) {
+      const { centerX, centerZ, halfExtent } = getOverheadCameraBounds();
+      const aspect = width / height;
+      this.camera = new THREE.OrthographicCamera(
+        -halfExtent * aspect,
+        halfExtent * aspect,
+        halfExtent,
+        -halfExtent,
+        0.1,
+        2000,
+      );
+      this.camera.position.set(centerX, 400, centerZ);
+      this.camera.lookAt(centerX, 0, centerZ);
+    } else {
+      this.camera = new THREE.PerspectiveCamera(55, width / height, 0.5, 2000);
+    }
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.75);
+    const sun = new THREE.DirectionalLight(0xfff2d6, 1.0);
+    sun.position.set(60, 120, 40);
     this.scene.add(ambient, sun);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      preserveDrawingBuffer: this.visualTest !== null,
+    });
+    this.renderer.setPixelRatio(this.visualTest ? 1 : Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(width, height);
     this.renderer.setClearColor(0x87ceeb);
     this.container.appendChild(this.renderer.domElement);
 
-    this.stats = new Stats();
-    this.stats.dom.style.position = 'absolute';
-    this.stats.dom.style.right = '0';
-    this.stats.dom.style.left = 'auto';
-    this.container.appendChild(this.stats.dom);
-
-    window.addEventListener('resize', this.onResize);
+    if (!this.visualTest) {
+      this.stats = new Stats();
+      this.stats.dom.style.position = 'absolute';
+      this.stats.dom.style.right = '0';
+      this.stats.dom.style.left = 'auto';
+      this.container.appendChild(this.stats.dom);
+      window.addEventListener('resize', this.onResize);
+    } else {
+      document.body.style.background = '#87ceeb';
+      document.body.style.margin = '0';
+    }
   }
 
   private async loadWorld(): Promise<void> {
+    const trackUrl = this.visualTest?.trackPath ?? '/trks/DEFAULT.TRK';
     const [trackObjects, trackResponse] = await Promise.all([
       loadTrackObjects(),
-      fetch('/trks/DEFAULT.TRK'),
+      fetch(trackUrl),
     ]);
+
+    if (!trackResponse.ok) {
+      throw new Error(`Failed to load track: ${trackUrl} (${trackResponse.status})`);
+    }
 
     this.trackData = parseTrackFile(await trackResponse.arrayBuffer());
     this.surface = new SurfaceSampler(this.trackData);
 
+    this.trackGroup = buildTrackScene(this.trackData, trackObjects);
+    this.scene.add(this.trackGroup);
+
+    if (this.visualTest) {
+      this.loadingEl.hidden = true;
+      return;
+    }
+
     const start = findStartPosition(this.trackData);
     this.car = await Car.create(CAR_IDS[this.carIndex], start);
     this.scene.add(this.car.mesh);
-
-    this.trackGroup = buildTrackScene(this.trackData, trackObjects);
-    this.scene.add(this.trackGroup);
 
     this.applyHorizon(this.trackData.horizon);
     this.positionCameraOverview();
@@ -134,6 +174,8 @@ export class Game {
     this.trackData = data;
     this.surface.setTrackData(data);
 
+    if (!this.editor) return;
+
     if (changedCell) {
       this.editor.updateCell(data, changedCell.x, changedCell.z);
     } else {
@@ -148,6 +190,8 @@ export class Game {
   }
 
   private async switchCar(delta: number): Promise<void> {
+    if (!this.car) return;
+
     this.carIndex = (this.carIndex + delta + CAR_IDS.length) % CAR_IDS.length;
     const carId = CAR_IDS[this.carIndex];
     const start = findStartPosition(this.trackData);
@@ -163,6 +207,7 @@ export class Game {
   }
 
   private updateCarHud(): void {
+    if (!this.car) return;
     this.carNameEl.textContent = `${this.car.definition.name} (${this.car.definition.abbreviation})`;
   }
 
@@ -174,6 +219,7 @@ export class Game {
   }
 
   private positionCameraOverview(): void {
+    if (!(this.camera instanceof THREE.PerspectiveCamera)) return;
     const centerX = (GRID_SIZE / 2) * TILE_SIZE;
     const centerZ = -(GRID_SIZE / 2) * TILE_SIZE;
     this.camera.position.set(centerX, 80, centerZ + 120);
@@ -181,12 +227,15 @@ export class Game {
   }
 
   private onResize = (): void => {
+    if (!(this.camera instanceof THREE.PerspectiveCamera)) return;
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   };
 
   private handleInput(): void {
+    if (!this.editor || !this.car) return;
+
     if (this.input.toggleEditor) {
       this.editor.toggle();
     }
@@ -216,6 +265,8 @@ export class Game {
   }
 
   private updateCamera(): void {
+    if (!(this.camera instanceof THREE.PerspectiveCamera) || !this.car) return;
+
     if (this.editing && this.editorTopDown) {
       const centerX = (GRID_SIZE / 2) * TILE_SIZE;
       const centerZ = -(GRID_SIZE / 2) * TILE_SIZE;
@@ -244,27 +295,49 @@ export class Game {
   }
 
   private animate = (): void => {
+    if (this.visualTest) {
+      this.visualFrames++;
+      this.renderer.render(this.scene, this.camera);
+      if (this.visualFrames >= 5 && !this.visualSignaled) {
+        this.visualSignaled = true;
+        signalVisualTestReady({
+          track: this.visualTest.trackPath,
+          width: this.visualTest.width,
+          height: this.visualTest.height,
+          frames: this.visualFrames,
+        });
+      }
+      if (!this.visualSignaled) {
+        requestAnimationFrame(this.animate);
+      }
+      return;
+    }
+
     requestAnimationFrame(this.animate);
     const delta = Math.min(this.clock.getDelta(), 0.05);
 
     this.handleInput();
 
-    this.car.update(delta, this.input, this.surface);
-    this.speedEl.textContent = `${this.car.speedKmh} km/h`;
-    this.rpmEl.textContent = `${this.car.rpm} RPM`;
-    this.gearEl.textContent = `Gear ${this.car.gear}`;
+    if (this.car) {
+      this.car.update(delta, this.input, this.surface);
+      this.speedEl.textContent = `${this.car.speedKmh} km/h`;
+      this.rpmEl.textContent = `${this.car.rpm} RPM`;
+      this.gearEl.textContent = `Gear ${this.car.gear}`;
+    }
 
     this.updateCamera();
     this.input.endFrame();
 
-    this.stats.update();
+    this.stats?.update();
     this.renderer.render(this.scene, this.camera);
   };
 
   dispose(): void {
-    window.removeEventListener('resize', this.onResize);
+    if (!this.visualTest) {
+      window.removeEventListener('resize', this.onResize);
+    }
     this.input.dispose();
-    this.editor.dispose();
+    this.editor?.dispose();
     stuntsMusic.stop();
     this.renderer.dispose();
   }

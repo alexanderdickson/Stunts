@@ -61,6 +61,7 @@ function serializeTrackFile(data) {
 console.log('Asset files on disk');
 const required = [
   'trks/DEFAULT.TRK',
+  'trks/test/manifest.json',
   'objs/trk/road.obj',
   'objs/trk/stunts.mtl',
   'objs/car/vett.obj',
@@ -79,6 +80,12 @@ assert(tileIcons.length >= 38, `at least 38 tile icons (${tileIcons.length} foun
 
 const carObjs = readdirSync(join(root, 'objs/car')).filter((f) => f.endsWith('.obj'));
 assert(carObjs.length === 11, `11 car OBJ files (${carObjs.length} found)`);
+
+const testTracks = JSON.parse(readFileSync(join(root, 'trks/test/manifest.json'), 'utf8')).tracks;
+assert(testTracks.length === 12, `12 visual test tracks (${testTracks.length} found)`);
+for (const { file } of testTracks) {
+  assert(existsSync(join(root, 'trks/test', file)), `trks/test/${file} exists`);
+}
 
 console.log('\nTrack file format');
 const trk = readFileSync(join(root, 'trks/DEFAULT.TRK'));

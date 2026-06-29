@@ -1,4 +1,5 @@
 import { Game } from './game/Game';
+import { parseVisualTestOptions } from './game/VisualTest';
 
 const loadingEl = document.getElementById('loading');
 const hudEl = document.getElementById('hud');
@@ -12,6 +13,8 @@ if (!loadingEl || !hudEl || !speedEl || !rpmEl || !gearEl || !carNameEl || !musi
   throw new Error('Missing required DOM elements');
 }
 
+const visualTest = parseVisualTestOptions(window.location.search);
+
 const game = new Game(
   loadingEl,
   hudEl,
@@ -20,6 +23,7 @@ const game = new Game(
   gearEl,
   carNameEl,
   musicBtn as HTMLButtonElement,
+  visualTest,
 );
 
 game.start().catch((error: unknown) => {

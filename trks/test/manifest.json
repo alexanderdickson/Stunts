@@ -1,0 +1,52 @@
+{
+  "tracks": [
+    {
+      "id": "default",
+      "file": "DEFAULT.TRK"
+    },
+    {
+      "id": "oval",
+      "file": "OVAL.TRK"
+    },
+    {
+      "id": "straight",
+      "file": "STRAIGHT.TRK"
+    },
+    {
+      "id": "ramps",
+      "file": "RAMPS.TRK"
+    },
+    {
+      "id": "loops",
+      "file": "LOOPS.TRK"
+    },
+    {
+      "id": "pipes",
+      "file": "PIPES.TRK"
+    },
+    {
+      "id": "banks",
+      "file": "BANKS.TRK"
+    },
+    {
+      "id": "bridge",
+      "file": "BRIDGE.TRK"
+    },
+    {
+      "id": "scenery",
+      "file": "SCENERY.TRK"
+    },
+    {
+      "id": "hills",
+      "file": "HILLS.TRK"
+    },
+    {
+      "id": "stadium",
+      "file": "STADIUM.TRK"
+    },
+    {
+      "id": "stunt-mix",
+      "file": "STUNT-MIX.TRK"
+    }
+  ]
+}

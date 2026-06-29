@@ -60,13 +60,36 @@ pnpm preview
 
 ## Test
 
-Automated verification (asset checks, track I/O, headless browser smoke test):
+Automated verification:
 
 ```bash
-pnpm test
+pnpm test              # unit + browser + visual (12 overhead map screenshots)
+pnpm test:unit         # assets and track I/O only
+pnpm test:browser      # headless Chrome smoke test
+pnpm test:visual       # compare 12 overhead map renders to baselines
+pnpm test:visual:update  # regenerate visual baselines after intentional changes
 ```
 
-This verifies the production build loads, WebGL renders, the editor opens, music toggles, and driving updates the HUD — all in headless Chrome via Playwright.
+### Visual map tests
+
+Twelve test tracks in `trks/test/` are rendered from an **orthographic overhead camera** (640×480) and compared to baseline PNGs in `tests/visual/baselines/` using pixelmatch.
+
+| Map | Features tested |
+|-----|-----------------|
+| default | Closed road loop |
+| oval | Larger oval circuit |
+| straight | Long drag strip |
+| ramps | Four-direction ramps |
+| loops | Loop-the-loop tiles |
+| pipes | Pipe / half-pipe |
+| banks | Banked turns |
+| bridge | Bridge sections |
+| scenery | Palm, tree, barn, gas |
+| hills | Terrain slopes and plateaus |
+| stadium | Stadium corners |
+| stunt-mix | Corkscrew, espresso, slalom |
+
+Regenerate test tracks: `pnpm generate:tracks`
 
 ## Car Models
 
